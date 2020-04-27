@@ -1,6 +1,6 @@
 import os
 from keras.models import load_model
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['KMP_WARNINGS'] = '0'
 from TypeMapping import lateral_distribution
