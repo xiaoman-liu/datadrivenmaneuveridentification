@@ -26,7 +26,7 @@ if __name__ == "__main__":
     # setup_sample_logging(train_model_name)
 
     # load features and labels
-    sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, _ = load_scenario_data()
+    sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, _ , _= load_scenario_data()
 
     # split train and val sample
     # first split_ratio sample for train, last for val
