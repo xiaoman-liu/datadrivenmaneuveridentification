@@ -12,21 +12,21 @@ from ImportData import sample_num
 from collections import Counter
 from utils.model import build_model, calculate_class_weight
 # from utils.load_data2 import load_scenario_data, split_trainval
-from utils.load_data_9feature_weigted_nonorma import load_scenario_data, split_trainval
+from utils.load_data_10_feature_tlane import load_scenario_data, split_trainval
 
 
 
 
 if __name__ == "__main__":
-    epochs = 150
+    epochs = 500
     model_structure = "two_lstm"
-    train_model_name = '{}/%s_%ssample_only_9_feature_weighted12_%sepoch_model{}' % (model_structure, sample_num, epochs)
+    train_model_name = '{}/%s_%ssample_10_feature_withtlane_weiht_nor_%sepoch_model{}' % (model_structure, sample_num, epochs)
 
     # init logging
     # setup_sample_logging(train_model_name)
 
     # load features and labels
-    sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, _ , _= load_scenario_data()
+    sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, _ ,_= load_scenario_data()
 
     # split train and val sample
     # first split_ratio sample for train, last for val
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     # build model
     model = build_model(features)
-    model.load_weights("/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/weights/two_lstm_150_0.405_checkpoint.hdf5")
+    # model.load_weights("/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/weights/two_lstm_150_0.405_checkpoint.hdf5")
 
     # # load model continue training
     # filename = 'weights/two_lstm_433sample_7feauture_normalized_goon_200epoch_model.h5'

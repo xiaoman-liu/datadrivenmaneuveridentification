@@ -31,6 +31,7 @@ top_k_scenario = 180 # total scenarios = 244
 scenario_num = 0
 scenario_list = []#[201,202,203,205,206,207,208,209,210,211,212,213,214,215,216,218,221,222,223,224,225,226,228,229,230,231,232,233,234,235,236,237,238,239]
 scenario_keys = "%s"%scenario_list
+scenarios_name = []
 # keys = ["scenario" + "%s"%i for i in scenario_list if scenario_list]
 keys = ['scenario197', 'scenario199', 'scenario212',
 'scenario214', 'scenario215', 'scenario223', 'scenario224', 'scenario225', 'scenario226',
@@ -54,6 +55,8 @@ else:
         if i == top_k_scenario: break
         print("loading data from {}".format(scenario))
         scenario_num +=1
+        # scenarios_name.append(key)
+
         scenario_data = data[scenario]
         ##### for sample type statistic
         # for sample_name in scenario_data:

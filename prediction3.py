@@ -12,7 +12,7 @@ random.seed(0)
 from collections import Counter
 from sklearn.metrics import confusion_matrix,classification_report
 
-from utils.load_data_9feature_weigted_nonorma import load_scenario_data, get_filePath_fileName_fileExt
+from utils.load_data_10_feature_tlane import load_scenario_data, get_filePath_fileName_fileExt
 from utils.predict_utils import plot_sample,plot_confusion_matrix,classifaction_report_csv,evaluate_model,weighted_loss
 
 
