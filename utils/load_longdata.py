@@ -3,8 +3,8 @@ from TypeMapping import lateral_id_mapping,longitudinal_id_mapping,section_roadi
 import keras.utils as k_utils
 import random
 random.seed(0)
-from ImportData import sample_num, scenarios_data, top_k_scenario,scenarios_name
-# from Import_Data_prediction import sample_num, scenarios_data, top_k_scenario,scenarios_name
+# from ImportData import sample_num, scenarios_data, top_k_scenario,scenarios_name
+from Import_Data_prediction import sample_num, scenarios_data, top_k_scenario,scenarios_name
 import os
 
 
@@ -17,7 +17,7 @@ def load_scenario_data():
     max_timestep = 3500
     # TODO: car type in feature?
     # TODO: feature engineering,data bucketing
-    features    = np.zeros((sample_number, max_timestep, 6 + 2+2 + 2 +2 + 5), dtype=np.float32)
+    features    = np.zeros((sample_number, max_timestep, 10 + 2+2 + 2 +2 + 5), dtype=np.float32)
     labels      = np.zeros((sample_number, max_timestep, 8+6), dtype=np.int64)
     labels_cls  = -1 * np.ones((sample_number, max_timestep, 2), dtype=np.int64)
     masks       = np.zeros((sample_number, max_timestep), dtype=np.int64)
@@ -31,14 +31,13 @@ def load_scenario_data():
         for key in scenario_data:
 
             # numerical feature
-            signal_value       = scenario_data[key]['signals'].values[:, [0,3,11]] # time , scoordinate, roadyaw,shape = ()
-            signal_value = signal_value - signal_value[0]
-            signal_value_minus = scenario_data[key]['signals'].values[:, [4,10,12]] # tcoordibate, heading, shape = ()
+            signal_value       = scenario_data[key]['signals'].values[:, [0,3,5,6,11]] # time , scoordinate, roadyaw,shape = ()
+            signal_value_minus = scenario_data[key]['signals'].values[:, [1,2,4,10,12]] # tcoordibate, heading, shape = ()
 
             # standardization1
-            # signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
-            # signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
-            #                      / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
+            signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
+            signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
+                                 / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
 
             # standardization2
             # signal_value       = signal_value  / np.max(signal_value,axis = 0)
@@ -100,7 +99,8 @@ def load_scenario_data():
                 longitudinal_label = k_utils.to_categorical(longtudinal, num_classes=6)
                 labels[index, idx, :8] = lateral_label
                 labels[index, idx, 8:] = longitudinal_label
-                labels_cls[index, idx, :] = [lateral, longtudinal]
+                labels_cls[index, idx, 0] = lateral
+                labels_cls[index, idx, 1] = longtudinal
 
             # add features
             total_signal_shape = signal_value_minus.shape[1] + signal_value.shape[1]
@@ -118,8 +118,8 @@ def load_scenario_data():
 
     #lateral_label_onehot shape = (samples, timesteps,8+6) # 8 is lateral labels number,after onehot code
     #lateral_label_noonehot shape = (samples, timesteps) label is from 0-7,without onehot
-    lateral_label_onehot = labels[:, :, :8]
-    lateral_label_noonehot = labels_cls[:, :, 0]
+    lateral_label_onehot = labels[:, :, 8:16]
+    lateral_label_noonehot = labels_cls[:, :, 1]
 
     return sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, sample_type,scenarios_name
 

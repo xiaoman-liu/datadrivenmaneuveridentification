@@ -3,13 +3,20 @@ import pickle
 from pathlib import Path
 import math
 from natsort import natsorted
+#import pandas as pd
 
-
+# import sys
+# sys.path.append(r'/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/scenarioSubclasses.py')
+#
+# with open("/home/xinjie/Desktop/newformat/1448.p","rb") as f:
+#     b=pickle.load(f)
 
 path = Path(os.getcwd()) / "data"
 
 pickle_in = open(path / "scenarios", "rb")
 data = pickle.load(pickle_in)
+# a = open("/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/data/newformat/1200.p","rb")
+# data = pd.read_pickle("/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/data/newformat/1200.p")
 # TODO: sort firstly
 
 
@@ -26,7 +33,7 @@ set top_k_scenario to -1 to select all scenarios from data
 
 scenarios_data = []
 sample_num = 0
-top_k_scenario = 180 # total scenarios = 244
+top_k_scenario = 186 # total scenarios = 244
 # keys = None
 scenario_num = 0
 scenario_list = []#[201,202,203,205,206,207,208,209,210,211,212,213,214,215,216,218,221,222,223,224,225,226,228,229,230,231,232,233,234,235,236,237,238,239]
@@ -55,7 +62,7 @@ else:
         if i == top_k_scenario: break
         print("loading data from {}".format(scenario))
         scenario_num +=1
-        # scenarios_name.append(key)
+
 
         scenario_data = data[scenario]
         ##### for sample type statistic
@@ -66,6 +73,7 @@ else:
         scenarios_data.append(scenario_data)
         for key in scenario_data:
             sample_num += 1
+            scenarios_name.append(scenario)
 
 
 

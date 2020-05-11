@@ -17,7 +17,7 @@ def load_scenario_data():
     max_timestep = 3500
     # TODO: car type in feature?
     # TODO: feature engineering,data bucketing
-    features    = np.zeros((sample_number, max_timestep, 6 + 2+2 + 2 +2 + 5), dtype=np.float32)
+    features    = np.zeros((sample_number, max_timestep, 6 + 2+2 +3 +2+ 5), dtype=np.float32)
     labels      = np.zeros((sample_number, max_timestep, 8+6), dtype=np.int64)
     labels_cls  = -1 * np.ones((sample_number, max_timestep, 2), dtype=np.int64)
     masks       = np.zeros((sample_number, max_timestep), dtype=np.int64)
@@ -31,14 +31,19 @@ def load_scenario_data():
         for key in scenario_data:
 
             # numerical feature
-            signal_value       = scenario_data[key]['signals'].values[:, [0,3,11]] # time , scoordinate, roadyaw,shape = ()
-            signal_value = signal_value - signal_value[0]
-            signal_value_minus = scenario_data[key]['signals'].values[:, [4,10,12]] # tcoordibate, heading, shape = ()
+            signal_value       = np.array(scenario_data[key]['signals'].values[:, [0,3,11]],dtype = np.float32) # time, sco,roadyaw,shape = ()
+            # signal_value = signal_value - signal_value[0]
+            signal_value = signal_value /np.array([1,365,360],dtype= np.float32)
+            signal_value_minus = np.array(scenario_data[key]['signals'].values[:, [4,10,12]],dtype = np.float32) /np.array([50,15,180],dtype = np.float32)# tcoordibate,tlane, , shape = ()
 
+            # roadyaw = np.array(scenario_data[key]['signals'].values[:, [11]],dtype = np.float32) / 360
+            #
+            # scoordinate = np.array(scenario_data[key]['signals'].values[:, 3],dtype = np.float32)
+            # heading = np.array(scenario_data[key]['signals'].values[:, 12],dtype = np.float32 )/180
             # standardization1
-            # signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
-            # signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
-            #                      / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
+            signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
+            signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
+                                 / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
 
             # standardization2
             # signal_value       = signal_value  / np.max(signal_value,axis = 0)
@@ -56,18 +61,22 @@ def load_scenario_data():
             laneid_ = scenario_data[key]['signals'].values[:, [8]]
             if_holdlane = np.ones_like(laneid)
             if_changelane = np.zeros_like(laneid)
-            first_laneid = [laneid[0]]
-            first = laneid[0]
+            first_laneid = []
+
 
             for id in range(len(laneid)):
-                if laneid[id] != first:
-                    if_changelane[id] = 1
-                if laneid[id] not in first_laneid:
-                    first_laneid.append(laneid[id])
+                if laneid[id]==99:
+                    if_changelane[id] = 2
+                if laneid[id]!=99:
+                    if laneid[id] not in first_laneid:
+                        first_laneid.append(laneid[id])
+                    if laneid[id] != first_laneid[0]:
+                        if_changelane[id] = 1
+
             if len(first_laneid) >1:
                 if_holdlane -=1
             if_holdlane = k_utils.to_categorical(if_holdlane, num_classes=2)
-            if_changelane = k_utils.to_categorical(if_changelane, num_classes=2)
+            if_changelane = k_utils.to_categorical(if_changelane, num_classes=3)
 
             # roadid
             roadid = scenario_data[key]['signals'].values[:,7]
@@ -83,10 +92,12 @@ def load_scenario_data():
                         if_change_road[road_index] = 1
 
                 else:
+                    if_change_road[road_index] =1
                     road_is_section[road_index] = 1
 
 
-            # road_is_section = road_is_section.reshape(-1,1)
+
+            road_is_section = road_is_section.reshape(-1,1)
             road_is_section = k_utils.to_categorical(road_is_section, num_classes=2)
             if_change_road = k_utils.to_categorical(if_change_road, num_classes=2)
             # onehot_roadid = k_utils.to_categorical(roadid, num_classes=28)
@@ -107,10 +118,10 @@ def load_scenario_data():
             features[index, :signal_value.shape[0], :signal_value.shape[1]] = signal_value
             features[index, :signal_value.shape[0], signal_value.shape[1]  :total_signal_shape] = signal_value_minus
             features[index, :signal_value.shape[0], total_signal_shape     :total_signal_shape + 2]  = road_is_section # shape, (num_sample, max_timestep, 12)
-            features[index, :signal_value.shape[0], total_signal_shape + 2 :total_signal_shape + 4] = if_change_road # shape, (num_sample, max_timestep, 12)
+            features[index, :signal_value.shape[0], total_signal_shape +2  :total_signal_shape + 4] = if_change_road # shape, (num_sample, max_timestep, 12)
             features[index, :signal_value.shape[0], total_signal_shape + 4:total_signal_shape + 6] = if_holdlane
-            features[index, :signal_value.shape[0], total_signal_shape + 6:total_signal_shape + 8] = if_changelane
-            features[index, :signal_value.shape[0], total_signal_shape + 8:total_signal_shape + 13] = onehot_type
+            features[index, :signal_value.shape[0], total_signal_shape + 6:total_signal_shape + 9] = if_changelane
+            features[index, :signal_value.shape[0], total_signal_shape + 9:total_signal_shape + 14] = onehot_type
 
 
             masks[index, :signal_value.shape[0]] = 1 # shape, (num_sample, max_timestep)

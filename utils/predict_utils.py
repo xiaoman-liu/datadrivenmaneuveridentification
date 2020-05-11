@@ -50,7 +50,7 @@ def weighted_loss(weights):
     return categorical_crossentropy_masked
 
 
-def build_model(features):
+def build_lateral_model(features):
     # two layer lstm model
     # Masking layer input shape = (timesteps,features)
     # LSTM layer inputshape = (timesteps,features)
@@ -69,6 +69,29 @@ def build_model(features):
     model.summary()
 
     return model
+
+
+def build_longtudinal_model(features):
+    # two layer lstm model
+    # Masking layer input shape = (timesteps,features)
+    # LSTM layer inputshape = (timesteps,features)
+    weights = np.array(
+        [[[1.0, 1.0, 1.8660868401011104, 2.0167500532225158, 1.7543857887550247, 1.0]]])
+    # {1: 1.0, 2: 1.8660868401011104, 3: 2.0167500532225158, 4: 1.7543857887550247, 5: 1.0}
+    model = Sequential()
+    model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
+    model.add(LSTM(128, return_sequences=True, input_shape=features.shape[1:]))
+    model.add(LSTM(64, return_sequences=True))
+    # model.add(LSTM(1,return_sequences = True))
+    # model.add(Dense(8, activation="softmax"))
+    model.add(TimeDistributed(Dense(6, activation="softmax")))
+    optm = Adam(lr=0.0001)
+    # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"])
+    model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])
+    model.summary()
+
+    return model
+
 
 def evaluate_model(modelname,features,lateral_label):
     # evaluate model
@@ -169,6 +192,7 @@ def plot_confusion_matrix(cm, cf_label,model_name,scenario_keys,savepath):
 def plot_sample(sample_number, val_pred_cls, val_true_cls, masks, sample_type,model_name,scenario_keys,savepath,scenarios_name):
     """plotting sample unit figure, and calculate accuracy, precision,recall,f1score,cm for each sample"""
 
+    name = []
     for index in range(sample_number):
         val_pred_cls_sample = val_pred_cls[index]
         val_true_cls_sample = val_true_cls[index]
@@ -178,8 +202,11 @@ def plot_sample(sample_number, val_pred_cls, val_true_cls, masks, sample_type,mo
         correct_bool = val_pred_cls_sample == val_true_cls_sample
         accuracy = correct_bool.astype(np.int).sum() / len(correct_bool)
         num_label = list(set(list(np.unique(val_pred_cls_sample))+list(np.unique(val_true_cls_sample))))
+        # str_label = [lateral_distribution[i] for i in num_label]
         str_label = [lateral_distribution[i] for i in num_label]
 
+        if  accuracy < 0.3:
+            name.append("{}_{}_{:.3f}".format(sample_type[index],scenarios_name[index],accuracy))
         ## calculate  precision,recall,f1score,cm for each sample
         # cm = confusion_matrix(val_true_cls_sample, val_pred_cls_sample)
         # print("confusion_matrix,without normalization\n", cm)
@@ -192,18 +219,23 @@ def plot_sample(sample_number, val_pred_cls, val_true_cls, masks, sample_type,mo
         # ave_fiscore = f1_score(val_true_cls_sample, val_pred_cls_sample, average='macro')
         # print("average_f1_score\n", ave_fiscore)
 
-        plt.plot(val_pred_cls_sample, 'g-.', label="predict")
-        plt.plot(val_true_cls_sample, 'r--', label="gt")
-        plt.legend()
-        plt.xlabel("timesteps")
-        # plt.ylabel("maneuver")
-        plt.yticks(num_label,str_label,fontsize = 10,rotation = 60)
-        plt.title("{} sample_{}_ accuracy {:.4f}".format(sample_type[index], scenarios_name[index],accuracy))
-        save_name =  savepath + "/plots/{}_%s_sample{}_%s" % (scenarios_name[index], model_name)
+            plt.plot(val_pred_cls_sample, 'g-.', label="predict")
+            plt.plot(val_true_cls_sample, 'r--', label="gt")
+            plt.legend()
+            plt.xlabel("timesteps")
+            # plt.ylabel("maneuver")
+            plt.yticks(num_label,str_label,fontsize = 10,rotation = 60)
+            plt.title("{} sample_{}_ accuracy {:.4f}".format(sample_type[index], scenarios_name[index],accuracy))
+            save_name =  savepath + "/plots/{}_%s_%2d_sample{}" % (scenarios_name[index],accuracy *100)
+            plt.savefig(save_name.format(sample_type[index], index))
+            plt.close()
+            # save_name = savepath + "/plots/" + name[-1]
+            # plt.savefig(save_name)
+            # plt.close()
 
-        plt.savefig(save_name.format(sample_type[index],index))
-        plt.close()
+
         # plt.show()
+    print(name)
 
 
 def ave_pre(y_true,y_pred):

@@ -1,4 +1,4 @@
-from keras.layers import Masking, TimeDistributed, LSTM, Dense, CuDNNLSTM
+from keras.layers import Masking, TimeDistributed, LSTM, Dense, CuDNNLSTM,Bidirectional
 from keras.models import Sequential
 from keras.optimizers import Adam
 import math
@@ -77,21 +77,64 @@ def calculate_class_weight(lateral_label_noonehot,mu = 0.15):
 
     return res
 
-
-def build_model(features):
+def build_lateral_BLSTM_model(features):
     # two layer lstm model
     # Masking layer input shape = (timesteps,features)
     # LSTM layer inputshape = (timesteps,features)
     weights = np.array(
-        [[[1.6413955164256195, 1.0, 1.0, 1.0, 1.0, 3.0370399682846183, 1.7239681905050477, 2.675769539175348]]])
+        [[[1.6413955164256195, 1.0, 1.0, 0.0, 1.0, 3.0370399682846183, 1.7239681905050477, 2.675769539175348]]])
     # weights = [[[0,1,10,0,0,0,0,0]]]
+    model = Sequential()
+    model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
+    model.add(Bidirectional(LSTM(128, return_sequences=True, input_shape=features.shape[1:])))
+    model.add(Bidirectional(LSTM(64, return_sequences=True)))
+    # model.add(LSTM(1,return_sequences = True))
+    # model.add(Dense(8, activation="softmax"))
+    model.add(TimeDistributed(Dense(8, activation="softmax")))
+    optm = Adam(lr=0.0001)
+    # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"])
+    model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])
+    model.summary()
+
+    return model
+
+
+# def build_lateral_model(features):
+#     # two layer lstm model
+#     # Masking layer input shape = (timesteps,features)
+#     # LSTM layer inputshape = (timesteps,features)
+#     weights = np.array(
+#         [[[1.6413955164256195, 1.0, 1.0, 0.0, 1.0, 3.0370399682846183, 1.7239681905050477, 2.675769539175348]]])
+#     # weights = [[[0,1,10,0,0,0,0,0]]]
+#     model = Sequential()
+#     model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
+#     model.add(LSTM(128, return_sequences=True, input_shape=features.shape[1:]))
+#     model.add(LSTM(64, return_sequences=True))
+#     # model.add(LSTM(1,return_sequences = True))
+#     # model.add(Dense(8, activation="softmax"))
+#     model.add(TimeDistributed(Dense(8, activation="softmax")))
+#     optm = Adam(lr=0.0001)
+#     # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"])
+#     model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])
+#     model.summary()
+#
+#     return model
+
+
+def build_longtudinal_model(features):
+    # two layer lstm model
+    # Masking layer input shape = (timesteps,features)
+    # LSTM layer inputshape = (timesteps,features)
+    weights = np.array(
+        [[[0.0, 1.0, 1.8660868401011104, 2.0167500532225158, 1.7543857887550247, 1.0]]])
+    # {1: 1.0, 2: 1.8660868401011104, 3: 2.0167500532225158, 4: 1.7543857887550247, 5: 1.0}
     model = Sequential()
     model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
     model.add(LSTM(128, return_sequences=True, input_shape=features.shape[1:]))
     model.add(LSTM(64, return_sequences=True))
     # model.add(LSTM(1,return_sequences = True))
     # model.add(Dense(8, activation="softmax"))
-    model.add(TimeDistributed(Dense(8, activation="softmax")))
+    model.add(TimeDistributed(Dense(6, activation="softmax")))
     optm = Adam(lr=0.0001)
     # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"])
     model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])

@@ -17,7 +17,7 @@ def load_scenario_data():
     max_timestep = 3500
     # TODO: car type in feature?
     # TODO: feature engineering,data bucketing
-    features    = np.zeros((sample_number, max_timestep, 6 + 2+2 + 2 +2 + 5), dtype=np.float32)
+    features    = np.zeros((sample_number, max_timestep, 6 + 2+2 + 2 + 5), dtype=np.float32)
     labels      = np.zeros((sample_number, max_timestep, 8+6), dtype=np.int64)
     labels_cls  = -1 * np.ones((sample_number, max_timestep, 2), dtype=np.int64)
     masks       = np.zeros((sample_number, max_timestep), dtype=np.int64)
@@ -32,13 +32,12 @@ def load_scenario_data():
 
             # numerical feature
             signal_value       = scenario_data[key]['signals'].values[:, [0,3,11]] # time , scoordinate, roadyaw,shape = ()
-            signal_value = signal_value - signal_value[0]
             signal_value_minus = scenario_data[key]['signals'].values[:, [4,10,12]] # tcoordibate, heading, shape = ()
 
             # standardization1
-            # signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
-            # signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
-            #                      / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
+            signal_value       = (signal_value - np.min(signal_value,axis = 0)) / (np.max(signal_value,axis = 0) - np.min(signal_value,axis = 0) + 1e-9)
+            signal_value_minus = (signal_value_minus - np.mean(signal_value_minus,axis = 0)) \
+                                 / (np.max(signal_value_minus,axis = 0) - np.min(signal_value_minus,axis = 0))
 
             # standardization2
             # signal_value       = signal_value  / np.max(signal_value,axis = 0)
@@ -109,8 +108,8 @@ def load_scenario_data():
             features[index, :signal_value.shape[0], total_signal_shape     :total_signal_shape + 2]  = road_is_section # shape, (num_sample, max_timestep, 12)
             features[index, :signal_value.shape[0], total_signal_shape + 2 :total_signal_shape + 4] = if_change_road # shape, (num_sample, max_timestep, 12)
             features[index, :signal_value.shape[0], total_signal_shape + 4:total_signal_shape + 6] = if_holdlane
-            features[index, :signal_value.shape[0], total_signal_shape + 6:total_signal_shape + 8] = if_changelane
-            features[index, :signal_value.shape[0], total_signal_shape + 8:total_signal_shape + 13] = onehot_type
+            # features[index, :signal_value.shape[0], total_signal_shape + 6:total_signal_shape + 8] = if_changelane
+            features[index, :signal_value.shape[0], total_signal_shape + 6:total_signal_shape + 11] = onehot_type
 
 
             masks[index, :signal_value.shape[0]] = 1 # shape, (num_sample, max_timestep)

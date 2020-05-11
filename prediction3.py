@@ -7,12 +7,12 @@ from keras.models import load_model
 from TypeMapping import lateral_distribution
 from Import_Data_prediction import scenario_keys
 import random
-from utils.predict_utils import build_model
+from utils.predict_utils import build_lateral_model,build_longtudinal_model
 random.seed(0)
 from collections import Counter
 from sklearn.metrics import confusion_matrix,classification_report
 
-from utils.load_data_10_feature_tlane import load_scenario_data, get_filePath_fileName_fileExt
+from utils.load_data_polo_coor import load_scenario_data, get_filePath_fileName_fileExt
 from utils.predict_utils import plot_sample,plot_confusion_matrix,classifaction_report_csv,evaluate_model,weighted_loss
 
 
@@ -26,14 +26,15 @@ if __name__ == "__main__":
     test_sample_distribution = sorted(test_sample_distribution.items(), key=lambda ele: ele[0])
     print(test_sample_distribution)
     print("\nlabel appear in test:\n")
-    for key, value in test_sample_distribution:
-        if key!= -1:
-            print("{:15s} {}".format(lateral_distribution[key], value))
+    # for key, value in test_sample_distribution:
+    #     if key!= -1:
+            # print("{:15s} {}".format(longtudinal_distribution[key], value))
+            # print("{:15s} {}".format(longtudinal_distribution[key], value))
 
 
     ### load model
-    savepath = "/home/xinjie/xiaoman/ppt presentation/4-27/9_features_roadlanechange"
-    filename = savepath + "/two_lstm_250_382_checkpoint.hdf5"
+    savepath = "/home/xinjie/xiaoman/ppt presentation/5-4/10-feature_polar"
+    filename = savepath + "/two_lstm_456sample_all_feature_landid3_dimension_polar_300epoch_model.h5"
 
 
     # # load full saved model
@@ -41,7 +42,8 @@ if __name__ == "__main__":
     # _, model_name, __ = get_filePath_fileName_fileExt(filename)
 
     # load model weight
-    model = build_model(features)
+    model = build_lateral_model(features)
+    # model = build_longtudinal_model(features)
     model.load_weights(filename)
 
     _, model_name, _ = get_filePath_fileName_fileExt(filename)
@@ -84,6 +86,8 @@ if __name__ == "__main__":
     cf_label_name = []
     for key,value in enumerate(cf_labels_num):
         cf_label_name.append(lateral_distribution[value])
+        # cf_label_name.append(longtudinal_distribution[value])
+
     cm = confusion_matrix(val_true_cls, val_pred_cls)
     ## visualize the normalized confusion matrix for all classes
     # cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]

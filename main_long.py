@@ -1,26 +1,26 @@
 import os
 from keras.models import load_model
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['KMP_WARNINGS'] = '0'
-from TypeMapping import lateral_distribution
+from TypeMapping import longtudinal_distribution
 import pandas as pd
 import random
 random.seed(0)
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from ImportData import sample_num
 from collections import Counter
-from utils.model import build_lateral_BLSTM_model, calculate_class_weight
+from utils.model import build_longtudinal_model, calculate_class_weight
 # from utils.load_data2 import load_scenario_data, split_trainval
-from utils.load_data_polo_coor import load_scenario_data, split_trainval
+from utils.load_longdata import load_scenario_data, split_trainval
 
 
 
 
 if __name__ == "__main__":
     epochs = 300
-    model_structure = "two_blstm"
-    train_model_name = '{}/%s_%ssample_polar_%sepoch_model{}' % (model_structure, sample_num, epochs)
+    model_structure = "two_lstm"
+    train_model_name = '{}/%s_%ssample_all_feature_long_%sepoch_model{}' % (model_structure, sample_num, epochs)
 
     # init logging
     # setup_sample_logging(train_model_name)
@@ -43,14 +43,14 @@ if __name__ == "__main__":
     print("\nlabel appear in train:")
     for key, value in train_sample_distribution.items():
         if key!=-1:
-            print("{:15s} {}".format(lateral_distribution[key],value))
+            print("{:15s} {}".format(longtudinal_distribution[key],value))
     print("\nlabel appear in val:")
     for key, value in val_sample_distribution.items():
         if key !=-1:
-            print("{:15s} {}".format(lateral_distribution[key],value))
+            print("{:15s} {}".format(longtudinal_distribution[key],value))
 
     # build model
-    model = build_lateral_BLSTM_model(features)
+    model = build_longtudinal_model(features)
     # model.load_weights("/home/xinjie/xiaoman/codes/datadrivenmaneuveridentification-Xiaoman/weights/two_lstm_150_0.405_checkpoint.hdf5")
 
     # # load model continue training
