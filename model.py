@@ -145,8 +145,6 @@ def calculate_class_weight(lateral_label_noonehot,mu = 0.15):
 def build_BLSTM_model(features,weights = np.array(
         [[[1.0, 1.0, 1.2895909855208851,1.8544334641414668]]]),class_number = 4):
 
-
-
     model = Sequential()
     model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
     model.add(Bidirectional(LSTM(256, return_sequences=True, input_shape=features.shape[1:])))
