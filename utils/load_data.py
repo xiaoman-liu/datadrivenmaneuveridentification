@@ -1,10 +1,131 @@
 import numpy as np
-from TypeMapping import lateral_id_mapping,longitudinal_id_mapping
+from TypeMapping import vehicle_state_id_mapping,lane_id_mapping,turn_id_mapping,preceding_id_mapping
 import keras.utils as k_utils
 import random
 random.seed(0)
-from ImportData import sample_num, scenarios_data, top_k_scenario
+from ImportData import sample_num, data_list, max_length
 import os
+import math
+
+
+def load_data_lane(prediction = False,class_number = 4,category = ""):
+    ##----------------- scenario_data from importData.py
+    # load features and labels
+
+
+    sample_number = sample_num
+    max_timestep = max_length
+    # TODO: car type in feature?
+    # TODO: feature engineering,data bucketing
+    features    = np.zeros((sample_number, max_timestep, 17), dtype=np.float32)
+    labels      = np.zeros((sample_number, max_timestep, class_number), dtype=np.int64)
+    labels_cls  = -3 * np.ones((sample_number, max_timestep, 2), dtype=np.int64)
+    masks       = np.zeros((sample_number, max_timestep), dtype=np.int64)
+    index       = 0
+    change_label = []
+
+
+
+    for i, sample_data in enumerate(data_list):
+        # time = sample_data[:,[1]] / np.array([728])
+        numerical_feature = np.array(sample_data[:,[1] + list(range(4,11)) + [12,13,25,27,28,29]]) \
+                            / np.array([800,1000,1000,10,5,5,10,2,10,1,50,5,1,1],dtype= np.float32)
+
+        laneid = np.array(sample_data[:,[11]])
+        if_changelane = np.zeros_like(laneid)
+        first_laneid = []
+        for id in range(len(laneid)):
+            if id == 0:
+                first_laneid.append(laneid[0])
+            else:
+                if laneid[id] not in first_laneid:
+                    first_laneid.append(laneid[id])
+                if laneid[id] != first_laneid[0]:
+                    if_changelane[id] = 1
+
+        if_changelane = k_utils.to_categorical(if_changelane, num_classes=2)
+
+        postion_x = np.array(sample_data[:,[4]], dtype=np.float32)
+        position_y = np.array(sample_data[:,[5]], dtype=np.float32)
+        angel = np.arctan(position_y / postion_x + 1e-6) * 180 / math.pi / 360
+
+
+        # maneuver
+        if category == "preceding":
+            maneuver_temp = sample_data[:,20]
+        elif category == "turn":
+            maneuver_temp = sample_data[:, 21]
+        elif category == "lane":
+            maneuver_temp = sample_data[:, 17]
+        elif category == "vehiclestate":
+            maneuver_temp = sample_data[:, 22]
+
+
+        curr = []
+        pre = ""
+        for idx, item in enumerate(maneuver_temp):
+            if category == "preceding":
+                maneuver = preceding_id_mapping[item]
+            elif category == "turn":
+                maneuver = turn_id_mapping[item]
+            elif category == "lane":
+                maneuver = lane_id_mapping[item]
+            elif category == "vehiclestate":
+                maneuver = vehicle_state_id_mapping[item]
+
+            if not curr:
+                curr.append(0)
+                pre = maneuver
+            elif pre != maneuver:
+                curr.append(curr[-1] + 1)
+                pre = maneuver
+            elif pre == maneuver:
+                curr.append(curr[-1])
+            maneuver_temp[idx] = maneuver
+            label = k_utils.to_categorical(maneuver, num_classes=class_number)
+            labels[index, idx, :class_number] = label
+            labels_cls[index, idx, :] = maneuver
+        change_label.append(len(set(curr)))
+
+
+        # add features
+        features[index, :numerical_feature.shape[0], :numerical_feature.shape[1]] = numerical_feature
+        features[index, :numerical_feature.shape[0], numerical_feature.shape[1]:numerical_feature.shape[1] +1] = angel
+        features[index, :numerical_feature.shape[0], numerical_feature.shape[1] +1:numerical_feature.shape[1] + 3] = if_changelane
+
+
+        masks[index, :sample_data.shape[0]] = 1 # shape, (num_sample, max_timestep)
+        index += 1
+
+
+    lateral_label_onehot = labels[:, :, :class_number]
+    lateral_label_noonehot = labels_cls[:, :, 0]
+
+    ratio = 0.8
+    split = int(sample_number * ratio)
+    if prediction == True:
+        sample_number = sample_number - split
+
+        return sample_number, features[split:,:,:], lateral_label_onehot[split:,:,:], lateral_label_noonehot[split:,:], masks[split:,:]
+    else:
+
+        return split, features[:split,:,:], lateral_label_onehot[:split,:,:], lateral_label_noonehot[:split,:], masks[:split,:],change_label
+    # return sample_number, no_pad_features, no_pad_labels, lateral_label_noonehot, masks, sample_type,scenarios_name
+
+
+def split_trainval(features, lateral_label_onehot,split_num):
+    """split train and val sample
+    """
+    train_features = features[:split_num, :, :]
+    train_label = lateral_label_onehot[:split_num,:,:]
+    val_features = features[split_num:, :, :]
+    val_label = lateral_label_onehot[split_num:,:,:]
+    # train_features = features[:split_num]
+    # train_label = lateral_label_onehot[:split_num]
+    # val_features = features[split_num:]
+    # val_label = lateral_label_onehot[split_num:]
+
+    return train_features, train_label, val_features, val_label
 
 
 def get_filePath_fileName_fileExt(filename):
@@ -33,62 +154,3 @@ def change_id_times(feature_id):
     return feature_id
 
 
-def load_scenario_data():
-    ##----------------- scenario_data from importData.py
-    # load features and labels
-    sample_number = sample_num
-    max_timestep = 3500
-    # TODO: car type in feature?
-    # TODO: feature engineering
-    features = np.zeros((sample_number, max_timestep, 10+11+16), dtype=np.float32)
-    labels   = np.zeros((sample_number, max_timestep, 8+6), dtype=np.int64)
-    labels_cls = -1 * np.ones((sample_number, max_timestep, 2), dtype=np.int64)
-    masks    = np.zeros((sample_number, max_timestep), dtype=np.int64)
-    index    = 0
-    sample_type = []
-    random.shuffle(scenarios_data)
-    for i, scenario_data in enumerate(scenarios_data):
-        if i == top_k_scenario: break
-        for key in scenario_data:
-            sample_type.append(key)
-            type = scenario_data[key]["Type"]
-            signal_value = scenario_data[key]['signals'].values[:, list(range(0,7))+list(range(10,13))]
-
-            laneid = change_id_times(scenario_data[key]['signals'].values[:,8])#TODO: laneid without changeinto times
-            roadid = change_id_times(scenario_data[key]['signals'].values[:,7])
-            onehot_laneid = k_utils.to_categorical(laneid, num_classes=16)
-            onehot_roadid = k_utils.to_categorical(roadid, num_classes=11)
-            maneuver_temp = scenario_data[key]['maneuverIdentification'].values[:,1:3]
-            for idx, item in enumerate(maneuver_temp):
-                lateral = lateral_id_mapping[item[0]]
-                longtudinal = longitudinal_id_mapping[item[1]]
-                lateral_label = k_utils.to_categorical(lateral, num_classes=8)
-                longitudinal_label = k_utils.to_categorical(longtudinal, num_classes=6)
-                labels[index, idx, :8] = lateral_label
-                labels[index, idx, 8:] = longitudinal_label
-                labels_cls[index, idx, :] = [lateral, longtudinal]
-            features[index, :signal_value.shape[0],:signal_value.shape[1]] = signal_value
-            features[index, :signal_value.shape[0], signal_value.shape[1] :signal_value.shape[1] + 11] = onehot_roadid# shape, (num_sample, max_timestep, 12)
-            features[index, :signal_value.shape[0], signal_value.shape[1] + 11:signal_value.shape[1] + 27] = onehot_laneid
-            masks[index, :signal_value.shape[0]] = 1 # shape, (num_sample, max_timestep)
-            index += 1
-
-    #lateral_label_onehot shape = (samples, timesteps,8) # 8 is labels number,after onehot code
-    #lateral_label_noonehot shape = (samples, timesteps) label is from 0-7,without onehot
-    lateral_label_onehot = labels[:, :, :8]
-    lateral_label_noonehot = labels_cls[:, :, 0]
-
-    return sample_number, features, lateral_label_onehot, lateral_label_noonehot, masks, sample_type
-
-
-
-
-def split_trainval(features, lateral_label_onehot,split_num):
-    """split train and val sample
-    """
-    train_features = features[:split_num, :, :]
-    train_label = lateral_label_onehot[:split_num,:,:]
-    val_features = features[split_num:, :, :]
-    val_label = lateral_label_onehot[split_num:,:,:]
-
-    return train_features, train_label, val_features, val_label

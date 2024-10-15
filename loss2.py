@@ -10,17 +10,22 @@ from utils.predict_utils import get_filePath_fileName_fileExt
 
 
 if __name__ == "__main__":
-    path = "/home/xinjie/xiaoman/ppt presentation/4-27/all feature_no_normalized_weighted/trainlog/"
-    filename = 'two_lstm_433sample_all_feature_weighted_loss_500epoch_model.csv'
+
+    # plot the loss and accuracy in training and prediction
+
+    path = "/home/xinjie/xiaoman/experiments/9-layer-64-128-64-3-3-3-3-3-5-5-5-7-29/"
+    filename = "FCN_turn_724sample_300epoch.csv"
+    epoch = 200
+
+
     _,model_name,__ = get_filePath_fileName_fileExt(path + filename)
-    data = pd.read_csv(path + filename,nrows = 500)
+    data = pd.read_csv(path + filename,nrows = epoch)
     epoch = data.iloc[1:,0]
     loss = data['loss'][1:]
-    acc = data['acc'][1:]
-    # acc = data["masked_accuracy"][1:]
+    acc = data['masked_accuracy'][1:]
     val_loss = data['val_loss'][1:]
-    val_acc = data['val_acc'][1:]
-    # val_acc = data['val_masked_accuracy'][1:]
+    val_acc = data['val_masked_accuracy'][1:]
+
 
     fig = plt.figure()
     ax1= fig.add_subplot(1,1,1)
@@ -40,26 +45,12 @@ if __name__ == "__main__":
 
     fig.legend(loc = 'center right',bbox_to_anchor=(1,0.5), bbox_transform=ax1.transAxes)
     ax1.grid()
-    plt.savefig(path + '/%s.png'%model_name)
-    plt.show()
+    save_path = path +'%s.png'%model_name
+    print("picture saved in {}".format(save_path))
+    plt.savefig(save_path)
+    # plt.show()
 
 
 
 
-    # plot the box
-    # tx0 = 0
-    # tx1 = 200
-    # #设置想放大区域的横坐标范围
-    # ty0 = 0.000
-    # ty1 = 3
-    # #设置想放大区域的纵坐标范围
-    # sx = [tx0,tx1,tx1,tx0,tx0]
-    # sy = [ty0,ty0,ty1,ty1,ty0]
-    # pl.plot(sx,sy,"purple")
-    # axins = inset_axes(ax1, width=1.5, height=1.5, loc='right')
-    # #loc是设置小图的放置位置，可以有"lower left,lower right,upper right,upper left,upper #,center,center left,right,center right,lower center,center"
-    # axins.plot(x1,y1 , color='red', ls='-')
-    # axins.plot(x2,y2 , color='blue', ls='-')
-    # axins.axis([0,20000,0.000,0.12])
-    # plt.savefig("train_results_loss.png")
-    # pl.show()
+

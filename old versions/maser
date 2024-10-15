@@ -1,6 +1,0 @@
-### 毕设遇到的问题：
-##### 道路id，路id编码
-- label-encodeing
-- 逻辑回归
-- 转变为是否换道，统计换道次数
-- one-hot encoder

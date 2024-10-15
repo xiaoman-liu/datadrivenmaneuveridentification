@@ -1,7 +1,7 @@
 from keras.optimizers import Adam
 import numpy as np
 import pandas as pd
-from TypeMapping import lateral_distribution
+from TypeMapping import lanemap,vehiclestate_map
 import keras.backend as K
 import tensorflow as tf
 import random
@@ -10,20 +10,17 @@ import matplotlib
 matplotlib.use('Agg')
 from keras.models import load_model
 import matplotlib.pyplot as plt
-from keras.layers import Masking, TimeDistributed, LSTM, Dense, CuDNNLSTM
-from keras.models import Sequential
+from keras.layers import Masking, TimeDistributed, LSTM, Dense, CuDNNLSTM,Bidirectional,Conv1D,BatchNormalization,Activation,add,Input
+from keras.models import Sequential,Model
 from keras.optimizers import Adam
 import os
-
+from keras.engine.topology import Layer
 import math
 import random
 from sklearn.metrics import confusion_matrix
-# from prediction3 import model_name
+from collections import Counter
 
-# class_weight = {0: 1.8681419262260441, 1: 1.0, 2: 1.0, 4: 1.0, 5: 2.6624168700615383, 6: 1.9883759054811836, 7: 2.9052259214862484}
-# weight = {
-#     0: 1.6413955164256195, 1: 1.0, 2: 1.0, 4: 1.0, 5: 3.0370399682846183, 6: 1.7239681905050477, 7: 2.675769539175348
-# }
+
 
 def weighted_loss(weights):
 
@@ -50,48 +47,6 @@ def weighted_loss(weights):
     return categorical_crossentropy_masked
 
 
-def build_lateral_model(features):
-    # two layer lstm model
-    # Masking layer input shape = (timesteps,features)
-    # LSTM layer inputshape = (timesteps,features)
-    weights = np.array([[[1.6413955164256195, 1.0, 1.0, 1.0,1.0, 3.0370399682846183, 1.7239681905050477, 2.675769539175348]]])
-
-    model = Sequential()
-    model.add(Masking(mask_value= 0, input_shape=features.shape[1:]))
-    model.add(LSTM(128, return_sequences = True, input_shape=features.shape[1:]))
-    model.add(LSTM(64, return_sequences = True))
-    # model.add(LSTM(1,return_sequences = True))
-    # model.add(Dense(8, activation="softmax"))
-    model.add(TimeDistributed(Dense(8, activation="softmax")))
-    optm = Adam(lr=0.0001)
-    # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"],sample_weight_mode='temporal')
-    model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])
-    model.summary()
-
-    return model
-
-
-def build_longtudinal_model(features):
-    # two layer lstm model
-    # Masking layer input shape = (timesteps,features)
-    # LSTM layer inputshape = (timesteps,features)
-    weights = np.array(
-        [[[1.0, 1.0, 1.8660868401011104, 2.0167500532225158, 1.7543857887550247, 1.0]]])
-    # {1: 1.0, 2: 1.8660868401011104, 3: 2.0167500532225158, 4: 1.7543857887550247, 5: 1.0}
-    model = Sequential()
-    model.add(Masking(mask_value=0, input_shape=features.shape[1:]))
-    model.add(LSTM(128, return_sequences=True, input_shape=features.shape[1:]))
-    model.add(LSTM(64, return_sequences=True))
-    # model.add(LSTM(1,return_sequences = True))
-    # model.add(Dense(8, activation="softmax"))
-    model.add(TimeDistributed(Dense(6, activation="softmax")))
-    optm = Adam(lr=0.0001)
-    # model.compile(optimizer=optm, loss='categorical_crossentropy', metrics=["accuracy"])
-    model.compile(optimizer=optm, loss=weighted_loss(weights), metrics=['accuracy'])
-    model.summary()
-
-    return model
-
 
 def evaluate_model(modelname,features,lateral_label):
     # evaluate model
@@ -112,6 +67,29 @@ def evaluate_model(modelname,features,lateral_label):
 
     return loss,accuracy
 
+def calculate_class_weight(lateral_label_noonehot,mu = 0.15):
+    """
+    calculate class_weight
+    """
+    label_dict = {}
+    all_sample_distribution = Counter(lateral_label_noonehot.reshape(-1).tolist())
+    all_sample_distribution = sorted(all_sample_distribution.items(), key=lambda ele: ele[0])
+    for key, value in all_sample_distribution:
+        if key!=-3:
+            label_dict[key] = value
+    total = 0
+    for _, value in label_dict.items():
+        total+=value
+    keys = label_dict.keys()
+    res = dict()
+    res_list = []
+    for key in keys:
+        score = math.log(mu*total/float(label_dict[key]))
+        res[key] = score if score > 1.0 else 1.0
+        res_list.append(score if score > 1.0 else 1.0)
+
+    return res_list
+
 
 def change_id_times(feature_id):
     # change the roadid into the times of changeroad
@@ -127,6 +105,23 @@ def change_id_times(feature_id):
 
     return feature_id
 
+def masked_accuracy(y_true, y_pred):
+
+    mask = tf.reduce_sum(y_true, axis=-1)  # (sample_num, max_timestep)
+    mask = tf.cast(mask, tf.bool)
+
+    y_true = tf.boolean_mask(y_true, mask) # (allsamples_left_timesteps, feature_num)
+    y_pred = tf.boolean_mask(y_pred, mask)
+
+    y_true = K.argmax(y_true, axis=-1)
+    y_pred = K.argmax(y_pred, axis=-1)
+
+    correct_bool = tf.equal(y_true, y_pred)
+    mask_accuracy = K.sum(tf.cast(correct_bool, tf.int32)) / tf.shape(correct_bool)[0]
+    mask_accuracy = tf.cast(mask_accuracy, tf.float32)
+
+    return mask_accuracy
+
 
 def get_filePath_fileName_fileExt(filename):
     """get file path ,file name,file extension"""
@@ -137,23 +132,25 @@ def get_filePath_fileName_fileExt(filename):
     return filepath,shotname,extension
 
 
-def classifaction_report_csv(report,model_name,scenario_keys,savepath):
+def classifaction_report_csv(report,model_name,savepath):
     """ save classifaction report as csv
      include total sample number,precision,recall,f1_score in each class"""
     df = pd.DataFrame(report).transpose()
-    df.to_csv(savepath + "/plots/%s_%s_classification_report.csv"%(model_name,scenario_keys),index = True)
+    df.to_csv(savepath + "/%s_classification_report.csv"%(model_name),index = True)
 
 
 
-def plot_confusion_matrix(cm, cf_label,model_name,scenario_keys,savepath):
+def plot_confusion_matrix(cm, cf_label,model_name,savepath):
     """
     plot confusion matrix
     """
-    savename = savepath + "/plots/%s_%s_cm_matrix.png" % (model_name, scenario_keys)
+    savename = savepath + "/%s_cm_matrix.png" % (model_name)
     # savename = 'test_log/%s_%s_cm_matrix.png' % (model_name, scenario_keys)
     title = '%s_Confusion_Matrix' % (model_name)
     #plot confusion matrix
-    plt.figure(figsize=(12, 8), dpi=100)
+
+    plt.rcParams['savefig.dpi'] = 600
+    plt.figure(figsize=(9, 8), dpi=600)
     np.set_printoptions(precision=3)
 
     # Probability value of each cell in the confusion matrix
@@ -162,17 +159,17 @@ def plot_confusion_matrix(cm, cf_label,model_name,scenario_keys,savepath):
     for x_val, y_val in zip(x.flatten(), y.flatten()):
         c = cm[y_val][x_val]
         if c > 0.001:
-            plt.text(x_val, y_val, "%d" % (c,), color='tomato', fontsize=13, va='center', ha='center')
+            plt.text(x_val, y_val, "%d" % (c,), color='tomato', fontsize=20, va='center', ha='center')
             # cm_normalized plt.text(x_val, y_val, "%0.2f" % (c,), color='red', fontsize=15, va='center', ha='center')
 
     plt.imshow(cm, interpolation='nearest', cmap=plt.cm.BuGn)
-    plt.title(title)
+    # plt.title(title)
     plt.colorbar()
     xlocations = np.array(range(len(cf_label)))
-    plt.xticks(xlocations, cf_label, rotation=90)
-    plt.yticks(xlocations, cf_label)
-    plt.ylabel('Actual label')
-    plt.xlabel('Predict label')
+    plt.xticks(xlocations, cf_label,fontsize = 16,rotation = 15)
+    plt.yticks(xlocations, cf_label,fontsize = 16)
+    plt.ylabel('Actual label',fontsize = 16)
+    plt.xlabel('Predict label',fontsize = 16)
 
     # offset the tick
     tick_marks = np.array(range(len(cf_label))) + 0.5
@@ -184,12 +181,13 @@ def plot_confusion_matrix(cm, cf_label,model_name,scenario_keys,savepath):
     plt.gcf().subplots_adjust(bottom=0.15)
 
     # show confusion matrix
+    plt.tight_layout()
     plt.savefig(savename, format='png')
     plt.close()
     # plt.show()
 
 
-def plot_sample(sample_number, val_pred_cls, val_true_cls, masks, sample_type,model_name,scenario_keys,savepath,scenarios_name):
+def plot_sample(sample_number, val_pred_cls, val_true_cls, masks,model_name,savepath,maneuver_map = None):
     """plotting sample unit figure, and calculate accuracy, precision,recall,f1score,cm for each sample"""
 
     name = []
@@ -202,40 +200,27 @@ def plot_sample(sample_number, val_pred_cls, val_true_cls, masks, sample_type,mo
         correct_bool = val_pred_cls_sample == val_true_cls_sample
         accuracy = correct_bool.astype(np.int).sum() / len(correct_bool)
         num_label = list(set(list(np.unique(val_pred_cls_sample))+list(np.unique(val_true_cls_sample))))
-        # str_label = [lateral_distribution[i] for i in num_label]
-        str_label = [lateral_distribution[i] for i in num_label]
+        str_label = [maneuver_map[i] for i in num_label]
 
-        if  accuracy < 0.3:
-            name.append("{}_{}_{:.3f}".format(sample_type[index],scenarios_name[index],accuracy))
-        ## calculate  precision,recall,f1score,cm for each sample
-        # cm = confusion_matrix(val_true_cls_sample, val_pred_cls_sample)
-        # print("confusion_matrix,without normalization\n", cm)
-        # plt.matshow(cm, cmap=plt.cm.gray)
-        # plt.show()
-        # ave_precision = precision_score(val_true_cls_sample, val_pred_cls_sample, average='macro')
-        # print("average_precision_score\n", ave_precision)
-        # ave_recall = recall_score(val_true_cls_sample, val_pred_cls_sample, average='macro')
-        # print("average_recall_score\n", ave_recall)
-        # ave_fiscore = f1_score(val_true_cls_sample, val_pred_cls_sample, average='macro')
-        # print("average_f1_score\n", ave_fiscore)
 
-            plt.plot(val_pred_cls_sample, 'g-.', label="predict")
-            plt.plot(val_true_cls_sample, 'r--', label="gt")
-            plt.legend()
-            plt.xlabel("timesteps")
-            # plt.ylabel("maneuver")
-            plt.yticks(num_label,str_label,fontsize = 10,rotation = 60)
-            plt.title("{} sample_{}_ accuracy {:.4f}".format(sample_type[index], scenarios_name[index],accuracy))
-            save_name =  savepath + "/plots/{}_%s_%2d_sample{}" % (scenarios_name[index],accuracy *100)
-            plt.savefig(save_name.format(sample_type[index], index))
-            plt.close()
-            # save_name = savepath + "/plots/" + name[-1]
-            # plt.savefig(save_name)
-            # plt.close()
+        plt.rcParams['savefig.dpi'] = 600
+        plt.rcParams['figure.dpi'] = 600
+
+        plt.plot(val_pred_cls_sample, 'g-.', label="predict")
+        plt.plot(val_true_cls_sample, 'r--', label="gt")
+        plt.legend()
+        plt.xlabel("timesteps",fontsize = 11)
+        plt.yticks(num_label,str_label,fontsize = 11,rotation = 60)
+
+        save_name =  savepath + "/plots/sample%d_%2d" % (index,accuracy *100)
+        plt.tight_layout()
+        plt.savefig(save_name)
+        plt.close()
+
 
 
         # plt.show()
-    print(name)
+
 
 
 def ave_pre(y_true,y_pred):
@@ -280,15 +265,3 @@ def confusion(y_true, y_pred):
 
     return cm
 
-
-    ## output prediction result in txt file
-    # out_path = "test_log/{}_predictions.txt".format(model_name)
-    # file = open(out_path, "w")
-    # file.write("\ntest pred_cls index\n")
-    # file.write(", ".join(map(str, val_pred_cls)))
-    # file.write("\ntest true_cls index\n")
-    # file.write(", ".join(map(str, val_true_cls)))
-    # file.write("\ncorrect_bool\n")
-    # file.write(", ".join(map(str, correct_bool)))
-    # file.write("\ntest accuracy: {}".format(accuracy))
-    # file.close()
