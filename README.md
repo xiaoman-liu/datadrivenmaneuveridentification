@@ -138,6 +138,8 @@ Model results on vehicle state maneuver:
 
 This project utilizes the [INTERACTION Dataset](https://interaction-dataset.com/) for its development and analysis. The dataset is described in the following paper:
 
+```bibtex
+
 @article{interactiondataset,
   title = {{INTERACTION} {Dataset}: {An} {INTERnational}, {Adversarial} and {Cooperative} {moTION} {Dataset} in {Interactive} {Driving} {Scenarios} with {Semantic} {Maps}},
   journal = {arXiv:1910.03088 Add to Citavi project by ArXiv ID[cs, eess]},
@@ -145,5 +147,5 @@ This project utilizes the [INTERACTION Dataset](https://interaction-dataset.com/
   month = sep,
   year = {2019}
 }
-
+```
 
